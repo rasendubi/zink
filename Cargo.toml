@@ -1,0 +1,7 @@
+[package]
+name = "zink"
+version = "0.1.0"
+authors = ["Alexey Shmalko <rasen.dubi@gmail.com>"]
+
+[dependencies]
+mqtt-protocol = "0.3"

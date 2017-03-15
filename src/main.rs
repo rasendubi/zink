@@ -21,6 +21,12 @@ use mqtt::packet::suback::{SubscribeReturnCode};
 
 use rs_jsonpath::lookup;
 
+macro_rules! log(
+    ($($arg:tt)*) => { {
+        writeln!(&mut ::std::io::stderr(), $($arg)*)
+    } }
+);
+
 fn main() {
     let matches = clap_app!(zink =>
                             (version: "0.1.0")
@@ -42,7 +48,7 @@ fn main() {
 
     let listener = TcpListener::bind("127.0.0.1:1883").unwrap();
 
-    println!("Listening on port 1883");
+    log!("Listening on port 1883");
 
     for stream in listener.incoming() {
         match stream {
@@ -54,7 +60,7 @@ fn main() {
                 });
             }
             Err(e) => {
-                println!("{}", e);
+                log!("{}", e);
             }
         }
     }
@@ -73,15 +79,15 @@ fn handle_client(mut stream: TcpStream, jsonpaths: Vec<String>, handle: Arc<Mute
     // Otherwise, mqtt decode consumes 100% CPU time.
     stream.set_read_timeout(None);
 
-    println!("{:?}", stream);
+    log!("{:?}", stream);
     let auto_decode = VariablePacket::decode(&mut stream);
-    println!("{:?}", auto_decode);
+    log!("{:?}", auto_decode);
     ConnackPacket::new(false, ConnectReturnCode::ConnectionAccepted).encode(&mut stream);
 
     loop {
         let parse_result = VariablePacket::decode(&mut stream);
         if let Ok(packet) = parse_result {
-            println!("{:?}", packet);
+            log!("{:?}", packet);
             match packet {
                 VariablePacket::SubscribePacket(x) => {
                     SubackPacket::new(
@@ -95,7 +101,7 @@ fn handle_client(mut stream: TcpStream, jsonpaths: Vec<String>, handle: Arc<Mute
                 }
                 VariablePacket::PublishPacket(x) => {
                     if let Ok(payload) = std::str::from_utf8(x.payload()) {
-                        println!("{}: {}", x.topic_name(), payload);
+                        log!("{}: {}", x.topic_name(), payload);
 
                         let mut csv = jsonpaths.iter()
                             .map(|path| {

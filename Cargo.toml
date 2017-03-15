@@ -5,3 +5,6 @@ authors = ["Alexey Shmalko <rasen.dubi@gmail.com>"]
 
 [dependencies]
 mqtt-protocol = "0.3"
+rs-jsonpath = "0.1"
+clap = "2"
+itertools = "0.5"

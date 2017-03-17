@@ -6,6 +6,7 @@ dependencies = [
  "itertools 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "mqtt-protocol 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rs-jsonpath 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

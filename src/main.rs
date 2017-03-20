@@ -12,41 +12,20 @@ use std::io::{self, Write};
 use std::sync::Arc;
 
 use mqtt::{Encodable, Decodable};
-use mqtt::packet::{ConnackPacket, Packet, PingrespPacket, PubackPacket, PublishPacket, PubrecPacket, PubcompPacket, SubackPacket, VariablePacket};
+use mqtt::packet::{ConnackPacket, Packet, PingrespPacket, PubackPacket, PubrecPacket, PubcompPacket, SubackPacket, VariablePacket};
 use mqtt::{TopicFilter, QualityOfService};
 use mqtt::control::ConnectReturnCode;
 use mqtt::packet::suback::SubscribeReturnCode;
 use mqtt::packet::publish::QoSWithPacketIdentifier;
 
+#[macro_use]
+mod common;
+mod application;
 mod csv_data_processor;
+
+use common::ZinkError;
+use application::Application;
 use csv_data_processor::CsvDataProcessor;
-
-macro_rules! log(
-    ($($arg:tt)*) => { {
-        let _ = writeln!(&mut ::std::io::stderr(), $($arg)*);
-    } }
-);
-
-#[derive(Debug)]
-enum ZinkError<'a> {
-    Mqtt(mqtt::packet::VariablePacketError<'a>),
-    NotMqttConnect,
-}
-
-impl<'a, P> From<mqtt::packet::PacketError<'a, P>> for ZinkError<'a>
-    where P: mqtt::packet::Packet<'a>,
-          mqtt::packet::VariablePacketError<'a>: std::convert::From<mqtt::packet::PacketError<'a, P>> {
-
-    fn from(err: mqtt::packet::PacketError<'a, P>) -> ZinkError<'a> {
-        ZinkError::Mqtt(mqtt::packet::VariablePacketError::from(err))
-    }
-}
-
-impl<'a> From<mqtt::packet::VariablePacketError<'a>> for ZinkError<'a> {
-    fn from(err: mqtt::packet::VariablePacketError<'a>) -> ZinkError<'a> {
-        ZinkError::Mqtt(err)
-    }
-}
 
 fn main() {
     let matches = clap_app!(
@@ -69,7 +48,9 @@ fn main() {
         Box::new(io::stdout()) as Box<Write + Send>
     };
 
-    let csv_data_processor = Arc::new(CsvDataProcessor::new(handle, jsonpaths));
+    let mut application = Application::new();
+    application.register_extension("dcx-instance-1", Box::new(CsvDataProcessor::new(handle, jsonpaths)));
+    let application = Arc::new(application);
 
     let bind_address = matches.value_of("bind").unwrap();
     let listener = TcpListener::bind(bind_address).unwrap();
@@ -79,11 +60,9 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                let csv_data_processor = csv_data_processor.clone();
+                let application = application.clone();
                 thread::spawn(move || {
-                    let res = handle_client(stream, &|ref x: &PublishPacket| {
-                        csv_data_processor.process_publish(x);
-                    });
+                    let res = handle_client(stream, &application);
                     log!("handle_client exited with {:?}", res);
                 });
             }
@@ -102,11 +81,7 @@ fn sub_to_ack(&(_, qos): &(TopicFilter, QualityOfService)) -> SubscribeReturnCod
     }
 }
 
-fn handle_client<'a, 'b>(mut stream: TcpStream, process_publish: &'b Fn(&PublishPacket)) -> Result<(), ZinkError<'a>> {
-    // This makes .read() call blocking.
-    // Otherwise, mqtt decode consumes 100% CPU time.
-    let _ = stream.set_read_timeout(None);
-
+fn handle_client<'a, 'b>(mut stream: TcpStream, app: &Application) -> Result<(), ZinkError<'a>> {
     log!("{:?}", stream);
     if let Ok(VariablePacket::ConnectPacket(x)) = VariablePacket::decode(&mut stream) {
         log!("{:?}", x);
@@ -157,7 +132,16 @@ fn handle_client<'a, 'b>(mut stream: TcpStream, process_publish: &'b Fn(&Publish
                     log!("{}: {:?}", x.topic_name(), x.payload());
                 }
 
-                process_publish(&x);
+                let topic_name = x.topic_name().split('/').collect::<Vec<_>>();
+                if topic_name.len() >= 2 {
+                    // ("kaa/demo1", "dcx-instance-1/endpoint/json")
+                    let (_, path) = topic_name.split_at(2);
+
+                    app.handle_request(
+                        path,
+                        x.payload(),
+                    );
+                }
             }
             _ => {
             }

@@ -27,10 +27,10 @@ bat = 50
 def send_data():
     global temp
     global bat
-    client.publish("zink/dce/test01/json", json.dumps([{"id": id, "temp": temp, "bat": bat }]))
+    client.publish("zink/app/dcx-instance-1/test01/json", json.dumps([{"id": id, "temp": temp, "bat": bat }]))
     temp += random.randint(-1, 1)
     bat += random.randint(-1, 1)
-    threading.Timer(5, send_data).start()
+    threading.Timer(0.01, send_data).start()
 
 send_data()
 

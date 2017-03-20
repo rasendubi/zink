@@ -27,6 +27,21 @@ macro_rules! log(
     } }
 );
 
+#[derive(Debug)]
+enum ZinkError<'a> {
+    Mqtt(mqtt::packet::VariablePacketError<'a>),
+    NotMqttConnect,
+}
+
+impl<'a, P> From<mqtt::packet::PacketError<'a, P>> for ZinkError<'a>
+    where P: mqtt::packet::Packet<'a>,
+          mqtt::packet::VariablePacketError<'a>: std::convert::From<mqtt::packet::PacketError<'a, P>> {
+
+    fn from(err: mqtt::packet::PacketError<'a, P>) -> ZinkError<'a> {
+        ZinkError::Mqtt(mqtt::packet::VariablePacketError::from(err))
+    }
+}
+
 fn main() {
     let matches = clap_app!(
         zink =>
@@ -60,9 +75,10 @@ fn main() {
             Ok(stream) => {
                 let csv_data_processor = csv_data_processor.clone();
                 thread::spawn(move || {
-                    handle_client(stream, &|ref x| {
+                    let res = handle_client(stream, &|ref x: &PublishPacket| {
                         csv_data_processor.process_publish(x);
                     });
+                    log!("handle_client exited with {:?}", res);
                 });
             }
             Err(e) => {
@@ -80,7 +96,7 @@ fn sub_to_ack(&(_, qos): &(TopicFilter, QualityOfService)) -> SubscribeReturnCod
     }
 }
 
-fn handle_client(mut stream: TcpStream, process_publish: &Fn(&PublishPacket)) {
+fn handle_client<'a, 'b>(mut stream: TcpStream, process_publish: &'b Fn(&PublishPacket)) -> Result<(), ZinkError<'a>> {
     // This makes .read() call blocking.
     // Otherwise, mqtt decode consumes 100% CPU time.
     let _ = stream.set_read_timeout(None);
@@ -88,9 +104,9 @@ fn handle_client(mut stream: TcpStream, process_publish: &Fn(&PublishPacket)) {
     log!("{:?}", stream);
     if let Ok(VariablePacket::ConnectPacket(x)) = VariablePacket::decode(&mut stream) {
         log!("{:?}", x);
-        ConnackPacket::new(false, ConnectReturnCode::ConnectionAccepted).encode(&mut stream);
+        try!(ConnackPacket::new(false, ConnectReturnCode::ConnectionAccepted).encode(&mut stream));
     } else {
-        return;
+        return Err(ZinkError::NotMqttConnect);
     }
 
     loop {
@@ -99,18 +115,18 @@ fn handle_client(mut stream: TcpStream, process_publish: &Fn(&PublishPacket)) {
             log!("{:?}", packet);
             match packet {
                 VariablePacket::SubscribePacket(x) => {
-                    SubackPacket::new(
+                    try!(SubackPacket::new(
                         x.packet_identifier(),
                         x.payload().subscribes().into_iter().map(sub_to_ack).collect()
-                    ).encode(&mut stream);
+                    ).encode(&mut stream));
                 }
                 VariablePacket::PingreqPacket(_) => {
-                    PingrespPacket::new()
-                        .encode(&mut stream);
+                    try!(PingrespPacket::new()
+                         .encode(&mut stream));
                 }
                 VariablePacket::PubrelPacket(x) => {
-                    PubcompPacket::new(x.packet_identifier())
-                        .encode(&mut stream);
+                    try!(PubcompPacket::new(x.packet_identifier())
+                         .encode(&mut stream));
                 }
                 VariablePacket::PublishPacket(x) => {
                     match x.qos() {
@@ -118,12 +134,12 @@ fn handle_client(mut stream: TcpStream, process_publish: &Fn(&PublishPacket)) {
                             // No additional handling is required
                         }
                         QoSWithPacketIdentifier::Level1(pkid) => {
-                            PubackPacket::new(pkid)
-                                .encode(&mut stream);
+                            try!(PubackPacket::new(pkid)
+                                 .encode(&mut stream));
                         }
                         QoSWithPacketIdentifier::Level2(pkid) => {
-                            PubrecPacket::new(pkid)
-                                .encode(&mut stream);
+                            try!(PubrecPacket::new(pkid)
+                                 .encode(&mut stream));
                         }
                     }
 

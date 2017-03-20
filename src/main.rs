@@ -11,18 +11,15 @@ use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
-use itertools::Itertools;
-
 use mqtt::{Encodable, Decodable};
-use mqtt::packet::{ConnackPacket, Packet, PingrespPacket, PubackPacket, PubrecPacket, PubcompPacket, SubackPacket, VariablePacket};
+use mqtt::packet::{ConnackPacket, Packet, PingrespPacket, PubackPacket, PublishPacket, PubrecPacket, PubcompPacket, SubackPacket, VariablePacket};
 use mqtt::{TopicFilter, QualityOfService};
 use mqtt::control::ConnectReturnCode;
 use mqtt::packet::suback::SubscribeReturnCode;
 use mqtt::packet::publish::QoSWithPacketIdentifier;
 
-use serde_json::Value;
-
-use rs_jsonpath::look;
+mod csv_data_processor;
+use csv_data_processor::CsvDataProcessor;
 
 macro_rules! log(
     ($($arg:tt)*) => { {
@@ -31,10 +28,12 @@ macro_rules! log(
 );
 
 fn main() {
-    let matches = clap_app!(zink =>
-                            (version: "0.1.0")
-                            (@arg file: -f --file +takes_value "File to append result")
-                            (@arg JSONPATH: +takes_value "JSON paths to use")
+    let matches = clap_app!(
+        zink =>
+            (version: "0.1.0")
+            (@arg file: -f --file +takes_value "File to append result to. If not specified, send results to stdout")
+            (@arg bind: -b --bind +takes_value default_value("0.0.0.0:1883") "Bind address and port")
+            (@arg JSONPATH: +required +use_delimiter +multiple "JSON paths to use")
     ).get_matches();
 
     let jsonpaths: Vec<String> = matches.value_of("JSONPATH").unwrap().split(",").map(String::from).collect();
@@ -49,17 +48,21 @@ fn main() {
         Arc::new(Mutex::new(io::stdout())) as Arc<Mutex<Write + Send>>
     };
 
-    let listener = TcpListener::bind("0.0.0.0:1883").unwrap();
+    let csv_data_processor = CsvDataProcessor::new(handle, jsonpaths);
 
-    log!("Listening on port 1883");
+    let bind_address = matches.value_of("bind").unwrap();
+    let listener = TcpListener::bind(bind_address).unwrap();
+
+    log!("Bound to {}", bind_address);
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                let paths = jsonpaths.clone();
-                let handle = handle.clone();
+                let csv_data_processor = csv_data_processor.clone();
                 thread::spawn(move || {
-                    handle_client(stream, &paths, handle);
+                    handle_client(stream, &|ref x| {
+                        csv_data_processor.process_publish(x);
+                    });
                 });
             }
             Err(e) => {
@@ -77,22 +80,7 @@ fn sub_to_ack(&(_, qos): &(TopicFilter, QualityOfService)) -> SubscribeReturnCod
     }
 }
 
-fn process_entries(entries: &Vec<Value>, jsonpaths: &Vec<String>, handle: Arc<Mutex<Write>>) {
-    for entry in entries.into_iter() {
-        let mut csv = jsonpaths.iter()
-            .map(|path| {
-                let res = look(&entry, &entry, path.clone()).unwrap_or("".to_string());
-                if res != "[]" { res } else { "".to_string() }
-            })
-            .join(",");
-        csv.push('\n');
-
-        let mut handle = handle.lock().unwrap();
-        let _ = handle.write_all(csv.as_bytes());
-    }
-}
-
-fn handle_client(mut stream: TcpStream, jsonpaths: &Vec<String>, handle: Arc<Mutex<Write>>) {
+fn handle_client(mut stream: TcpStream, process_publish: &Fn(&PublishPacket)) {
     // This makes .read() call blocking.
     // Otherwise, mqtt decode consumes 100% CPU time.
     let _ = stream.set_read_timeout(None);
@@ -127,7 +115,7 @@ fn handle_client(mut stream: TcpStream, jsonpaths: &Vec<String>, handle: Arc<Mut
                 VariablePacket::PublishPacket(x) => {
                     match x.qos() {
                         QoSWithPacketIdentifier::Level0 => {
-                            // No additionl handling required
+                            // No additional handling is required
                         }
                         QoSWithPacketIdentifier::Level1(pkid) => {
                             PubackPacket::new(pkid)
@@ -145,21 +133,7 @@ fn handle_client(mut stream: TcpStream, jsonpaths: &Vec<String>, handle: Arc<Mut
                         log!("{}: {:?}", x.topic_name(), x.payload());
                     }
 
-                    match serde_json::from_slice(x.payload()) {
-                        Ok(Value::Object(obj)) => {
-                            if let Some(&Value::Array(ref entries)) = obj.get("entries") {
-                                process_entries(entries, jsonpaths, handle.clone());
-                            } else {
-                                // TODO: error handling
-                            }
-                        }
-                        Ok(Value::Array(entries)) => {
-                            process_entries(&entries, jsonpaths, handle.clone());
-                        }
-                        _ => {
-                            log!("Parse error");
-                        }
-                    }
+                    process_publish(&x);
                 }
                 _ => {
                 }

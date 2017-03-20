@@ -21,12 +21,13 @@ client.on_subscribe = on_subscribe
 
 client.connect("127.0.0.1")
 
+id = random.randint(0, 1000)
 temp = 25
 bat = 50
 def send_data():
     global temp
     global bat
-    client.publish("zink/dce/test01/json", json.dumps({ "temp": temp, "bat": bat }))
+    client.publish("zink/dce/test01/json", json.dumps([{"id": id, "temp": temp, "bat": bat }]))
     temp += random.randint(-1, 1)
     bat += random.randint(-1, 1)
     threading.Timer(5, send_data).start()

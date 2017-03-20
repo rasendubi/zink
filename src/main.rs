@@ -119,6 +119,9 @@ fn handle_client<'a, 'b>(mut stream: TcpStream, process_publish: &'b Fn(&Publish
         let packet = try!(VariablePacket::decode(&mut stream));
         log!("{:?}", packet);
         match packet {
+            VariablePacket::DisconnectPacket(_) => {
+                return Ok(());
+            }
             VariablePacket::SubscribePacket(x) => {
                 try!(SubackPacket::new(
                     x.packet_identifier(),

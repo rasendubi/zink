@@ -54,7 +54,7 @@ fn main() {
             (version: "0.1.0")
             (@arg file: -f --file +takes_value "File to append result to. If not specified, send results to stdout")
             (@arg bind: -b --bind +takes_value default_value("0.0.0.0:1883") "Bind address and port")
-            (@arg JSONPATH: +required +use_delimiter +multiple "JSON paths to use")
+            (@arg JSONPATH: +required "JSON paths to use")
     ).get_matches();
 
     let jsonpaths: Vec<String> = matches.value_of("JSONPATH").unwrap().split(",").map(String::from).collect();

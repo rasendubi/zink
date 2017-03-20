@@ -42,6 +42,12 @@ impl<'a, P> From<mqtt::packet::PacketError<'a, P>> for ZinkError<'a>
     }
 }
 
+impl<'a> From<mqtt::packet::VariablePacketError<'a>> for ZinkError<'a> {
+    fn from(err: mqtt::packet::VariablePacketError<'a>) -> ZinkError<'a> {
+        ZinkError::Mqtt(err)
+    }
+}
+
 fn main() {
     let matches = clap_app!(
         zink =>
@@ -110,49 +116,47 @@ fn handle_client<'a, 'b>(mut stream: TcpStream, process_publish: &'b Fn(&Publish
     }
 
     loop {
-        let parse_result = VariablePacket::decode(&mut stream);
-        if let Ok(packet) = parse_result {
-            log!("{:?}", packet);
-            match packet {
-                VariablePacket::SubscribePacket(x) => {
-                    try!(SubackPacket::new(
-                        x.packet_identifier(),
-                        x.payload().subscribes().into_iter().map(sub_to_ack).collect()
-                    ).encode(&mut stream));
-                }
-                VariablePacket::PingreqPacket(_) => {
-                    try!(PingrespPacket::new()
-                         .encode(&mut stream));
-                }
-                VariablePacket::PubrelPacket(x) => {
-                    try!(PubcompPacket::new(x.packet_identifier())
-                         .encode(&mut stream));
-                }
-                VariablePacket::PublishPacket(x) => {
-                    match x.qos() {
-                        QoSWithPacketIdentifier::Level0 => {
-                            // No additional handling is required
-                        }
-                        QoSWithPacketIdentifier::Level1(pkid) => {
-                            try!(PubackPacket::new(pkid)
-                                 .encode(&mut stream));
-                        }
-                        QoSWithPacketIdentifier::Level2(pkid) => {
-                            try!(PubrecPacket::new(pkid)
-                                 .encode(&mut stream));
-                        }
+        let packet = try!(VariablePacket::decode(&mut stream));
+        log!("{:?}", packet);
+        match packet {
+            VariablePacket::SubscribePacket(x) => {
+                try!(SubackPacket::new(
+                    x.packet_identifier(),
+                    x.payload().subscribes().into_iter().map(sub_to_ack).collect()
+                ).encode(&mut stream));
+            }
+            VariablePacket::PingreqPacket(_) => {
+                try!(PingrespPacket::new()
+                     .encode(&mut stream));
+            }
+            VariablePacket::PubrelPacket(x) => {
+                try!(PubcompPacket::new(x.packet_identifier())
+                     .encode(&mut stream));
+            }
+            VariablePacket::PublishPacket(x) => {
+                match x.qos() {
+                    QoSWithPacketIdentifier::Level0 => {
+                        // No additional handling is required
                     }
-
-                    if let Ok(payload) = std::str::from_utf8(x.payload()) {
-                        log!("{}: {}", x.topic_name(), payload);
-                    } else {
-                        log!("{}: {:?}", x.topic_name(), x.payload());
+                    QoSWithPacketIdentifier::Level1(pkid) => {
+                        try!(PubackPacket::new(pkid)
+                             .encode(&mut stream));
                     }
+                    QoSWithPacketIdentifier::Level2(pkid) => {
+                        try!(PubrecPacket::new(pkid)
+                             .encode(&mut stream));
+                    }
+                }
 
-                    process_publish(&x);
+                if let Ok(payload) = std::str::from_utf8(x.payload()) {
+                    log!("{}: {}", x.topic_name(), payload);
+                } else {
+                    log!("{}: {:?}", x.topic_name(), x.payload());
                 }
-                _ => {
-                }
+
+                process_publish(&x);
+            }
+            _ => {
             }
         }
     }

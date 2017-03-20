@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use mqtt::{Encodable, Decodable};
 use mqtt::packet::{ConnackPacket, Packet, PingrespPacket, PubackPacket, PublishPacket, PubrecPacket, PubcompPacket, SubackPacket, VariablePacket};
@@ -38,17 +38,17 @@ fn main() {
 
     let jsonpaths: Vec<String> = matches.value_of("JSONPATH").unwrap().split(",").map(String::from).collect();
 
-    let handle: Arc<Mutex<Write + Send>> = if let Some(filepath) = matches.value_of("file") {
-        Arc::new(Mutex::new(OpenOptions::new()
+    let handle: Box<Write + Send> = if let Some(filepath) = matches.value_of("file") {
+        Box::new(OpenOptions::new()
                  .append(true)
                  .create(true)
                  .open(filepath)
-                 .unwrap())) as Arc<Mutex<Write + Send>>
+                 .unwrap()) as Box<Write + Send>
     } else {
-        Arc::new(Mutex::new(io::stdout())) as Arc<Mutex<Write + Send>>
+        Box::new(io::stdout()) as Box<Write + Send>
     };
 
-    let csv_data_processor = CsvDataProcessor::new(handle, jsonpaths);
+    let csv_data_processor = Arc::new(CsvDataProcessor::new(handle, jsonpaths));
 
     let bind_address = matches.value_of("bind").unwrap();
     let listener = TcpListener::bind(bind_address).unwrap();

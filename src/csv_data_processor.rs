@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use mqtt::packet::{Packet, PublishPacket};
 
@@ -15,15 +15,15 @@ macro_rules! log(
     } }
 );
 
-pub struct CsvDataProcessor {
-    handle: Arc<Mutex<Write + Send>>,
+pub struct CsvDataProcessor<W> {
+    handle: Mutex<W>,
     patterns: Vec<String>,
 }
 
-impl CsvDataProcessor {
-    pub fn new(handle: Arc<Mutex<Write + Send>>, patterns: Vec<String>) -> CsvDataProcessor {
+impl<W> CsvDataProcessor<W> where W: Write {
+    pub fn new(handle: W, patterns: Vec<String>) -> CsvDataProcessor<W> {
         CsvDataProcessor {
-            handle: handle,
+            handle: Mutex::new(handle),
             patterns: patterns,
         }
     }
@@ -65,11 +65,5 @@ impl CsvDataProcessor {
     }
 }
 
-impl Clone for CsvDataProcessor {
-    fn clone(&self) -> CsvDataProcessor {
-        CsvDataProcessor {
-            handle: self.handle.clone(),
-            patterns: self.patterns.clone(),
-        }
-    }
+unsafe impl<W> Sync for CsvDataProcessor<W> {
 }

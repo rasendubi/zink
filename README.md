@@ -19,15 +19,19 @@ If file is not specified, result is appended to stdout.
 ## Example
 Imagine device sending the following data to the Zink:
 ```json
-{"temp": 16, "bat": 28}
+[
+  {"time": 10, "temp": 16, "bat": 28},
+  {"bat": 27.9, "temp": 16.25, "time": 11}
+]
 ```
 
 You can extract it into CSV using the following call.
 ```sh
-cargo run -- bat,temp
+cargo run -- time,bat,temp
 ```
 
 The result is next.
 ```
-28,16
+10,28,16
+11,27.9,16.25
 ```

@@ -5,6 +5,12 @@ extern crate rs_jsonpath;
 extern crate clap;
 extern crate itertools;
 
+extern crate bytes;
+extern crate futures;
+extern crate tokio_io;
+extern crate tokio_proto;
+extern crate tokio_service;
+
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::fs::OpenOptions;
@@ -23,9 +29,16 @@ mod common;
 mod application;
 mod csv_data_processor;
 
+mod mqtt_codec;
+mod mqtt_proto;
+mod kp_service;
+
 use common::ZinkError;
 use application::Application;
 use csv_data_processor::CsvDataProcessor;
+
+use mqtt_proto::MqttProto;
+use kp_service::Kp;
 
 fn main() {
     let matches = clap_app!(
@@ -52,25 +65,29 @@ fn main() {
     application.register_extension("dcx-instance-1", Box::new(CsvDataProcessor::new(handle, jsonpaths)));
     let application = Arc::new(application);
 
-    let bind_address = matches.value_of("bind").unwrap();
-    let listener = TcpListener::bind(bind_address).unwrap();
+    // let bind_address = matches.value_of("bind").unwrap();
+    // let listener = TcpListener::bind(bind_address).unwrap();
 
-    log!("Bound to {}", bind_address);
+    // log!("Bound to {}", bind_address);
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let application = application.clone();
-                thread::spawn(move || {
-                    let res = handle_client(stream, &application);
-                    log!("handle_client exited with {:?}", res);
-                });
-            }
-            Err(e) => {
-                log!("{}", e);
-            }
-        }
-    }
+    // for stream in listener.incoming() {
+    //     match stream {
+    //         Ok(stream) => {
+    //             let application = application.clone();
+    //             thread::spawn(move || {
+    //                 let res = handle_client(stream, &application);
+    //                 log!("handle_client exited with {:?}", res);
+    //             });
+    //         }
+    //         Err(e) => {
+    //             log!("{}", e);
+    //         }
+    //     }
+    // }
+
+    let addr = "0.0.0.0:1883".parse().unwrap();
+    let server = tokio_proto::TcpServer::new(MqttProto, addr);
+    server.serve(|| Ok(Kp));
 }
 
 fn sub_to_ack(&(_, qos): &(TopicFilter, QualityOfService)) -> SubscribeReturnCode {

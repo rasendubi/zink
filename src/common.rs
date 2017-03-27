@@ -26,3 +26,8 @@ impl<'a> From<mqtt::packet::VariablePacketError<'a>> for ZinkError<'a> {
         ZinkError::Mqtt(err)
     }
 }
+
+pub struct ZinkMessage {
+    pub path: String,
+    pub payload: Vec<u8>,
+}

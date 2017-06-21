@@ -4,6 +4,7 @@ extern crate rs_jsonpath;
 #[macro_use]
 extern crate clap;
 extern crate itertools;
+extern crate hyper;
 
 use std::net::{TcpListener, TcpStream};
 use std::thread;
@@ -22,10 +23,12 @@ use mqtt::packet::publish::QoSWithPacketIdentifier;
 mod common;
 mod application;
 mod csv_data_processor;
+mod influxdb_data_processor;
 
 use common::ZinkError;
 use application::Application;
 use csv_data_processor::CsvDataProcessor;
+use influxdb_data_processor::InfluxDbDataProcessor;
 
 fn main() {
     let matches = clap_app!(
@@ -50,6 +53,7 @@ fn main() {
 
     let mut application = Application::new();
     application.register_extension("dcx-instance-1", Box::new(CsvDataProcessor::new(handle, jsonpaths)));
+    application.register_extension("dcx-instance-1", Box::new(InfluxDbDataProcessor::new()));
     let application = Arc::new(application);
 
     let bind_address = matches.value_of("bind").unwrap();

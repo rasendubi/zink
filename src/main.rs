@@ -54,6 +54,7 @@ fn main() {
     let mut application = Application::new();
     application.register_extension("dcx-instance-1", Box::new(CsvDataProcessor::new(handle, jsonpaths)));
     application.register_extension("dcx-instance-1", Box::new(InfluxDbDataProcessor::new()));
+    application.register_extension("dcx_instance_1", Box::new(InfluxDbDataProcessor::new()));
     let application = Arc::new(application);
 
     let bind_address = matches.value_of("bind").unwrap();

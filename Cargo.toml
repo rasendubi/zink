@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Alexey Shmalko <rasen.dubi@gmail.com>"]
 
 [dependencies]
-mqtt-protocol = { git = "https://github.com/zonyitoo/mqtt-rs.git", rev = "1c7f656b46e4386bb76884b59d40e17811de50bc" }
+mqtt-protocol = "0.4"
 serde_json = "0.9"
 rs-jsonpath = "0.1"
 clap = "2"

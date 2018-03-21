@@ -1,15 +1,3 @@
-[root]
-name = "zink"
-version = "0.1.0"
-dependencies = [
- "clap 2.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hyper 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "itertools 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "mqtt-protocol 0.4.1 (git+https://github.com/zonyitoo/mqtt-rs.git)",
- "rs-jsonpath 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
 [[package]]
 name = "aho-corasick"
 version = "0.6.2"
@@ -167,8 +155,8 @@ dependencies = [
 
 [[package]]
 name = "mqtt-protocol"
-version = "0.4.1"
-source = "git+https://github.com/zonyitoo/mqtt-rs.git#1c7f656b46e4386bb76884b59d40e17811de50bc"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -381,6 +369,18 @@ name = "winapi-build"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
+[[package]]
+name = "zink"
+version = "0.1.0"
+dependencies = [
+ "clap 2.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.5.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mqtt-protocol 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rs-jsonpath 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 0.9.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
 [metadata]
 "checksum aho-corasick 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0638fd549427caa90c499814196d1b9e3725eb4d15d7339d6de073a680ed0ca2"
 "checksum ansi_term 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "23ac7c30002a5accbf7e8987d0632fa6de155b7c3d39d0067317a391e00a2ef6"
@@ -403,7 +403,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum matches 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "efd7622e3022e1a6eaa602c4cea8912254e5582c9c692e9167714182244801b1"
 "checksum memchr 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1dbccc0e46f1ea47b9f17e6d67c5a96bd27030519c519c9c91327e31275a47b4"
 "checksum mime 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5514f038123342d01ee5f95129e4ef1e0470c93bc29edf058a46f9ee3ba6737e"
-"checksum mqtt-protocol 0.4.1 (git+https://github.com/zonyitoo/mqtt-rs.git)" = "<none>"
+"checksum mqtt-protocol 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "fabbc3356897da437f59c4278b7634ea2e88220709193f18706956defe0d62ea"
 "checksum num-traits 0.1.37 (registry+https://github.com/rust-lang/crates.io-index)" = "e1cbfa3781f3fe73dc05321bed52a06d2d491eaa764c52335cf4399f046ece99"
 "checksum num_cpus 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ca313f1862c7ec3e0dfe8ace9fa91b1d9cb5c84ace3d00f5ec4216238e93c167"
 "checksum redox_syscall 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)" = "29dbdfd4b9df8ab31dec47c6087b7b13cbf4a776f335e4de8efba8288dda075b"
